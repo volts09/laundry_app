@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Laundry Manager</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#15302B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Laundry">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Manrope:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F2F5F4;--card:#fff;--line:#DCE3E0;--fg:#16211F;--mut:#52615D;--side:#15302B;--sideFg:#C9D8D3;
+--acc:#1E4F8F;--accSoft:#E8EFF8;--ok:#1F6B45;--okSoft:#E2F1E8;--warn:#A35A12;--warnSoft:#FBF0E2;--bad:#B3261E;--badSoft:#FBE9E7;--col:#E6ECE9;
+--fd:'Bricolage Grotesque',Georgia,serif;--fb:'Manrope',system-ui,-apple-system,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--fb);font-size:15px;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+h1{font-family:var(--fd);font-size:26px;margin:0;text-wrap:balance}
+h2{font-size:17px;margin:0 0 10px}
+a{color:var(--acc)}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+
+/* shell */
+.sidebar{position:fixed;inset:0 auto 0 0;width:230px;background:var(--side);padding:20px 12px;display:flex;flex-direction:column;gap:4px;z-index:60;transition:transform .2s;overflow-y:auto}
+.brand{font-family:var(--fd);font-size:21px;color:#fff;padding:0 14px 4px}
+.brand-sub{font-size:12px;color:var(--sideFg);padding:0 14px 16px}
+.nav button{all:unset;display:block;cursor:pointer;padding:12px 14px;border-radius:10px;color:var(--sideFg)}
+.nav button.on{background:rgba(255,255,255,.12);color:#fff;font-weight:700}
+.nav button:focus-visible{outline:2px solid #fff}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:6px;padding-top:12px}
+.side-foot button{all:unset;cursor:pointer;padding:10px 14px;border-radius:10px;color:var(--sideFg);font-size:14px}
+.side-foot button:hover{background:rgba(255,255,255,.08)}
+.topbar{position:sticky;top:0;z-index:40;margin-left:230px;background:var(--card);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:10px 20px;padding-top:calc(10px + env(safe-area-inset-top,0px))}
+.topbar .title{font-weight:700;font-size:17px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.menu-btn{display:none;background:none;border:1px solid var(--line);border-radius:10px;min-width:44px;min-height:44px;cursor:pointer;font-size:18px}
+.main{margin-left:230px;padding:22px clamp(14px,3vw,30px) 40px;display:flex;flex-direction:column;gap:16px}
+.overlay-side{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:55}
+@media (max-width:860px){
+  .sidebar{transform:translateX(-100%)} .sidebar.open{transform:none}
+  .overlay-side.show{display:block}
+  .topbar,.main{margin-left:0} .menu-btn{display:block}
+  .hide-sm{display:none}
+}
+
+/* building blocks */
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
+.grid{display:grid;gap:14px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.two{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.lbl{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.07em}
+.big{font-family:var(--fd);font-size:28px;margin-top:4px;font-variant-numeric:tabular-nums}
+.sub{color:var(--mut);font-size:14px}
+.head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.row-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+td,th{padding:10px 8px;text-align:left;border-bottom:1px solid var(--line);font-size:14px;white-space:nowrap}
+th{color:var(--mut);font-weight:500;font-size:13px}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--bg)}
+.num{text-align:right}
+.btn{cursor:pointer;min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;color:var(--fg)}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.bad{color:var(--bad);border-color:var(--bad)}
+.btn.sm{min-height:36px;padding:0 12px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:default}
+input,select,textarea{min-height:44px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);width:100%}
+textarea{min-height:70px}
+label.f{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--mut);min-width:0}
+.form{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.form .full{grid-column:1/-1}
+.pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.p-received{background:var(--accSoft);color:var(--acc)} .p-washing{background:#EDE9F7;color:#5B3FA3}
+.p-ready{background:var(--warnSoft);color:var(--warn)} .p-claimed{background:var(--okSoft);color:var(--ok)} .p-cancelled{background:var(--badSoft);color:var(--bad)}
+.empty{color:var(--mut);font-size:14px;padding:14px 4px}
+
+/* board */
+.board{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;align-items:start}
+.col{background:var(--col);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.col-h{font-weight:700;display:flex;justify-content:space-between}
+.tk{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:14px;display:flex;flex-direction:column;gap:3px;cursor:pointer}
+.tk.late{border-color:var(--warn)}
+.tno{font-family:var(--fd);font-size:15px}
+.tk .btn{margin-top:8px}
+
+/* new order */
+.svcs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.svc{cursor:pointer;text-align:left;min-height:62px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--card)}
+.svc:hover{border-color:var(--acc)}
+.sum-row{display:flex;justify-content:space-between;padding:5px 0;gap:10px}
+.line{display:grid;grid-template-columns:1fr 90px 90px 36px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
+.line input{min-height:38px;padding:4px 8px}
+.x{all:unset;cursor:pointer;width:36px;height:36px;display:grid;place-items:center;border-radius:8px;color:var(--bad)}
+
+/* modal, toast, login */
+.overlay{display:none;position:fixed;inset:0;background:rgba(10,20,18,.5);z-index:100;align-items:center;justify-content:center;padding:16px}
+.overlay.show{display:flex}
+.modal{background:var(--card);border-radius:16px;width:100%;max-width:560px;max-height:90vh;display:flex;flex-direction:column}
+.modal-h{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line);font-weight:700;font-size:17px}
+.modal-b{padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+.modal-f{padding:12px 18px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:#fff;padding:12px 18px;border-radius:12px;z-index:200;display:none;max-width:90vw;font-size:14px}
+.toast.show{display:block}
+#login{position:fixed;inset:0;background:var(--side);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px}
+.login-card{background:var(--card);border-radius:20px;width:100%;max-width:400px;padding:30px;display:flex;flex-direction:column;gap:14px}
+.err{color:var(--bad);font-size:13px;min-height:18px}
+#upd{display:none;position:fixed;top:0;left:0;right:0;z-index:400;background:var(--acc);color:#fff;padding:10px 16px;padding-top:calc(10px + env(safe-area-inset-top,0px));text-align:center;font-size:14px}
+#upd button{margin-left:10px;background:#fff;color:var(--acc);border:0;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer}
+@media print{.sidebar,.topbar,.no-print{display:none}.main{margin:0}}
+</style>
+</head>
+<body>
+
+<div id="upd">A new version is ready. <button onclick="applyUpdate()">Update now</button></div>
+
+<!-- Login -->
+<div id="login">
+  <form class="login-card" onsubmit="event.preventDefault();doLogin()">
+    <div>
+      <div style="font-family:var(--fd);font-size:26px" id="loginShop">Laundry Manager</div>
+      <div class="sub">Sign in to continue</div>
+    </div>
+    <label class="f">Username<input id="lu" autocomplete="username" autocapitalize="none" required></label>
+    <label class="f">Password<input id="lp" type="password" autocomplete="current-password" required></label>
+    <div class="err" id="lerr" role="alert"></div>
+    <button class="btn pri" id="lbtn" type="submit">Sign in</button>
+    <div class="sub" style="font-size:12px;text-align:center">Ask the shop owner for your login.</div>
+  </form>
+</div>
+
+<div class="overlay-side" id="sideOv" onclick="closeSide()"></div>
+<nav class="sidebar" id="side" aria-label="Main">
+  <div class="brand" id="shopName">Laundry Manager</div>
+  <div class="brand-sub" id="sideUser"></div>
+  <div class="nav" id="nav"></div>
+  <div class="side-foot">
+    <button onclick="changeMyPassword()">Change password</button>
+    <button onclick="doLogout()">Log out</button>
+  </div>
+</nav>
+
+<header class="topbar">
+  <button class="menu-btn" onclick="openSide()" aria-label="Open menu">☰</button>
+  <div class="title" id="ttl">Dashboard</div>
+  <label id="brWrap" style="display:none" class="hide-sm"><span class="sub" style="margin-right:6px">Branch</span></label>
+  <select id="brSel" style="display:none;width:auto;max-width:180px" aria-label="Branch" onchange="S.view=this.value;refresh()"></select>
+  <button class="btn sm" onclick="refresh()" title="Refresh">↻</button>
+</header>
+
+<main class="main" id="main"></main>
+
+<div class="overlay" id="ov" onclick="if(event.target===this&&!M.locked)closeModal()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mt">
+    <div class="modal-h"><span id="mt"></span><button class="x" style="color:var(--mut)" onclick="closeModal()" aria-label="Close" id="mx">✕</button></div>
+    <div class="modal-b" id="mb"></div>
+    <div class="modal-f" id="mf"></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════
+//  CONFIG — paste the NEW laundry Supabase project's URL + publishable key
+//  (Supabase → Project Settings → API). Never the clinic's.
+// ══════════════════════════════════════════════════════════════════════════
+const SHOP_NAME   = '[Shop Name]';
+const _SB_URL     = 'https://fgeyivdvivcxkbomwmsc.supabase.co';
+const _SB_API_KEY = 'sb_publishable_sCTJ8PuxqT-O8lmmzVO3gw_a3gWKGrb';
+const _EF_BASE    = _SB_URL + '/functions/v1';
+const LOYALTY_EVERY = 10;          // every Nth claimed order shows as "free load" due
+
+// ══════════════════════════════════════════════════════════════════════════
+//  Session + backend (same pattern as the clinic app)
+// ══════════════════════════════════════════════════════════════════════════
+const S = { token:null, user:'', name:'', role:'', branch:null, view:'All', branches:[], services:[], page:'dash', arg:null };
+const ALL_ROLES = ['Owner','Admin','Developer'];
+const seesAll = () => ALL_ROLES.includes(S.role);
+const isManager = () => seesAll() || S.role==='BranchAdmin';
+const $ = id => document.getElementById(id);
+
+function _ss(k,v){ try{ if(v===undefined) return sessionStorage.getItem(k); if(v===null) sessionStorage.removeItem(k); else sessionStorage.setItem(k,v);}catch(e){ return null; } }
+
+async function _efLogin(body){
+  try{
+    const r = await fetch(_EF_BASE + '/login', { method:'POST',
+      headers:{ 'apikey':_SB_API_KEY, 'Authorization':'Bearer '+_SB_API_KEY, 'Content-Type':'application/json' },
+      body: JSON.stringify(body) });
+    return await r.json();
+  }catch(e){ return { success:false, error:'Cannot reach the server. Check your internet.' }; }
+}
+
+// Every table call goes through db-proxy — the browser never talks to Postgres directly.
+async function api(path, method='GET', body=null){
+  if(!S.token) throw new Error('Not logged in');
+  const r = await fetch(_EF_BASE + '/db-proxy', { method:'POST',
+    headers:{ 'apikey':_SB_API_KEY, 'Authorization':'Bearer '+_SB_API_KEY, 'Content-Type':'application/json' },
+    body: JSON.stringify({ token:S.token, path, method, body }) });
+  const text = await r.text();
+  if(r.status===401){ toast('Session expired. Please log in again.'); doLogout(); throw new Error('Session expired'); }
+  if(!r.ok){ let m=text; try{ m=JSON.parse(text).error||text; }catch(e){} throw new Error(m); }
+  if(!text.trim()) return true;
+  try{ return JSON.parse(text); }catch(e){ return true; }
+}
+function audit(action, detail){ api('audit_log','POST',{action, detail:String(detail||'').slice(0,500)}).catch(()=>{}); }
+
+// ══════════════════════════════════════════════════════════════════════════
+//  Helpers
+// ══════════════════════════════════════════════════════════════════════════
+const esc = s => String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const peso = n => ((+n||0)<0?'-':'') + '₱' + (Math.round(Math.abs(+n||0)*100)/100).toLocaleString('en-PH',{minimumFractionDigits:0,maximumFractionDigits:2});
+const enc = encodeURIComponent;
+const pad = n => String(n).padStart(2,'0');
+const ymd = d => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+function dayStart(d=new Date()){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
+const iso = d => d.toISOString();
+const fmtDT = s => s ? new Date(s).toLocaleString('en-PH',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : '';
+const fmtD  = s => s ? new Date(s).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'}) : '';
+const daysAgo = s => Math.floor((Date.now()-new Date(s))/864e5);
+const bal = o => Math.max(0,(+o.total||0)-(+o.paid||0));
+// Branch filter for owners/admins viewing one branch (staff are filtered server-side)
+const bf = () => (seesAll() && S.view!=='All') ? '&branch=eq.'+enc(S.view) : '';
+const STATUS = {received:'Received', washing:'Washing', ready:'Ready', claimed:'Claimed', cancelled:'Cancelled'};
+const pill = st => `<span class="pill p-${st}">${STATUS[st]||st}</span>`;
+const itemsText = o => (o.items||[]).map(i=>`${i.name} ${i.qty} ${i.unit}`).join(', ');
+
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),3200); }
+function busy(btn,on,label){ if(!btn) return; btn.disabled=on; if(on){btn._l=btn.textContent;btn.textContent=label||'Saving…';} else if(btn._l) btn.textContent=btn._l; }
+
+// Modal (same idea as the clinic app's openModal)
+const M = { locked:false };
+function openModal(title, body, buttons=[], locked=false){
+  $('mt').textContent=title; $('mb').innerHTML=body; M.locked=locked; $('mx').style.display=locked?'none':'';
+  $('mf').innerHTML=''; buttons.forEach(b=>{ const el=document.createElement('button'); el.className='btn '+(b.cls||''); el.textContent=b.label; el.onclick=()=>b.fn(el); $('mf').appendChild(el); });
+  $('mf').style.display=buttons.length?'':'none';
+  $('ov').classList.add('show');
+  setTimeout(()=>{ const f=$('mb').querySelector('input,select,textarea'); if(f) f.focus(); },50);
+}
+function closeModal(){ $('ov').classList.remove('show'); M.locked=false; }
+function confirmBox(msg, okLabel='Yes', danger=false){
+  return new Promise(res=>{ openModal('Please confirm', `<div>${esc(msg)}</div>`, [
+    {label:'Cancel', fn:()=>{closeModal();res(false);}},
+    {label:okLabel, cls:danger?'bad':'pri', fn:()=>{closeModal();res(true);}} ]); });
+}
+
+// Print (same approach as the clinic app's _openPrint)
+const _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+function openPrint(html){
+  try{
+    if(_isIOS){ const u=URL.createObjectURL(new Blob([html],{type:'text/html'})); const a=document.createElement('a'); a.href=u; a.target='_blank'; a.rel='noopener'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),15000); }
+    else { const w=window.open('','_blank','width=420,height=700'); if(!w){ toast('Popup blocked. Allow popups to print.'); return; } w.document.write(html); w.document.close(); }
+  }catch(e){ toast('Could not open print view: '+e.message); }
+}
+function downloadCSV(name, rows){
+  const csv = rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv'})); a.download=name; document.body.appendChild(a); a.click(); a.remove();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  Login / logout
+// ══════════════════════════════════════════════════════════════════════════
+async function doLogin(){
+  const u=$('lu').value.trim(), p=$('lp').value, b=$('lbtn');
+  $('lerr').textContent=''; busy(b,true,'Signing in…');
+  const d = await _efLogin({action:'login', username:u, password:p});
+  busy(b,false);
+  if(!d.success){ $('lerr').textContent=d.error||'Login failed'; return; }
+  Object.assign(S,{token:d.token, user:u.toLowerCase(), name:d.name||u, role:d.role, branch:d.branch});
+  _ss('lx_sess', JSON.stringify({token:d.token,user:S.user,name:S.name,role:S.role,branch:S.branch}));
+  $('lp').value='';
+  if(d.forcePasswordChange) return forcePassword();
+  startApp();
+}
+function forcePassword(){
+  openModal('Set your new password', `<div class="sub">This is your first login. Choose a password only you know (at least 8 characters).</div>
+    <label class="f">New password<input id="np1" type="password" autocomplete="new-password"></label>
+    <label class="f">Type it again<input id="np2" type="password" autocomplete="new-password"></label><div class="err" id="nperr"></div>`,
+    [{label:'Save password', cls:'pri', fn: async b=>{
+      const a=$('np1').value, c=$('np2').value;
+      if(a.length<8) return $('nperr').textContent='Use at least 8 characters.';
+      if(a!==c) return $('nperr').textContent='The two passwords do not match.';
+      busy(b,true); const r=await _efLogin({action:'change_password', token:S.token, newPassword:a}); busy(b,false);
+      if(!r.success) return $('nperr').textContent=r.error||'Could not save';
+      closeModal(); toast('Password saved'); startApp();
+    }}], true);
+  $('login').style.display='none';
+}
+function changeMyPassword(){
+  if(S.user==='__developer__') return toast('Change the developer password in Supabase secrets.');
+  openModal('Change password', `<label class="f">New password<input id="np1" type="password" autocomplete="new-password"></label>
+    <label class="f">Type it again<input id="np2" type="password" autocomplete="new-password"></label><div class="err" id="nperr"></div>`,
+    [{label:'Cancel', fn:closeModal},{label:'Save', cls:'pri', fn: async b=>{
+      const a=$('np1').value; if(a.length<8) return $('nperr').textContent='Use at least 8 characters.';
+      if(a!==$('np2').value) return $('nperr').textContent='The two passwords do not match.';
+      busy(b,true); const r=await _efLogin({action:'change_password', token:S.token, newPassword:a}); busy(b,false);
+      if(!r.success) return $('nperr').textContent=r.error; closeModal(); toast('Password changed');
+    }}]);
+}
+function doLogout(){ S.token=null; _ss('lx_sess',null); closeModal(); $('main').innerHTML=''; $('login').style.display='flex'; }
+
+async function startApp(){
+  $('login').style.display='none';
+  $('sideUser').textContent = `${S.name} · ${S.role}${S.branch?' · '+S.branch:''}`;
+  try{
+    const [br, sv] = await Promise.all([ api('branches?select=*&order=name'), api('services?select=*&order=sort,name') ]);
+    S.branchesAll = br||[]; S.branches = S.branchesAll.filter(b=>b.active!==false); S.services = sv||[];
+  }catch(e){ toast('Could not load setup: '+e.message); }
+  const sel=$('brSel');
+  if(seesAll() && S.branches.length>1){
+    sel.innerHTML = '<option value="All">All branches</option>' + S.branches.map(b=>`<option>${esc(b.name)}</option>`).join('');
+    sel.value=S.view; sel.style.display=''; $('brWrap').style.display='';
+  } else { sel.style.display='none'; $('brWrap').style.display='none'; }
+  go('dash');
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  Navigation
+// ══════════════════════════════════════════════════════════════════════════
+const PAGES = [
+  ['dash','Dashboard'], ['orders','Job Orders'], ['neworder','New Order'], ['customers','Customers'],
+  ['expenses','Expenses'], ['reports','Reports', ()=>isManager()], ['settings','Settings', ()=>isManager()],
+];
+function buildNav(){
+  $('nav').innerHTML = PAGES.filter(p=>!p[2]||p[2]()).map(([k,l])=>`<button class="${S.page===k?'on':''}" ${S.page===k?'aria-current="page"':''} onclick="go('${k}')">${l}</button>`).join('');
+}
+function go(page, arg=null){ S.page=page; S.arg=arg; const p=PAGES.find(x=>x[0]===page); $('ttl').textContent=p?p[1]:''; buildNav(); closeSide(); window.scrollTo(0,0); refresh(); }
+async function refresh(){
+  const main=$('main'); main.innerHTML='<div class="empty">Loading…</div>';
+  try{ await ({dash:pgDash, orders:pgOrders, neworder:pgNewOrder, customers:pgCustomers, customer:pgCustomer, expenses:pgExpenses, reports:pgReports, settings:pgSettings}[S.page])(main); }
+  catch(e){ main.innerHTML=`<div class="card"><h2>Something went wrong</h2><div class="sub">${esc(e.message)}</div><button class="btn" style="margin-top:12px" onclick="refresh()">Try again</button></div>`; }
+}
+function openSide(){ $('side').classList.add('open'); $('sideOv').classList.add('show'); }
+function closeSide(){ $('side').classList.remove('open'); $('sideOv').classList.remove('show'); }
+
+// ══════════════════════════════════════════════════════════════════════════
+//  Dashboard
+// ══════════════════════════════════════════════════════════════════════════
+async function pgDash(main){
+  const T=iso(dayStart());
+  const [pays, ords, open, exps] = await Promise.all([
+    api(`payments?select=amount,method,branch&created_at=gte.${T}${bf()}`),
+    api(`orders?select=id,branch,status&created_at=gte.${T}${bf()}`),
+    api(`orders?select=id,ticket_no,cust_name,branch,total,paid,status,ready_at,due_at&status=in.(received,washing,ready)${bf()}&order=created_at`),
+    api(`expenses?select=amount,branch&spent_on=eq.${ymd(new Date())}${bf()}`),
+  ]);
+  const sum=(a,f='amount')=>a.reduce((s,x)=>s+(+x[f]||0),0);
+  const ready=open.filter(o=>o.status==='ready');
+  const unpaid=open.reduce((s,o)=>s+bal(o),0);
+  const overdue=ready.filter(o=>o.ready_at && daysAgo(o.ready_at)>=3).sort((a,b)=>new Date(a.ready_at)-new Date(b.ready_at));
+  const byMethod={}; pays.forEach(p=>byMethod[p.method]=(byMethod[p.method]||0)+(+p.amount));
+  const hr=new Date().getHours(), greet=hr<12?'Good morning':hr<18?'Good afternoon':'Good evening';
+  let branchTable='';
+  if(seesAll() && S.view==='All' && S.branches.length>1){
+    branchTable = `<div class="card"><h2>Today by branch</h2><div class="tw"><table><tr><th>Branch</th><th class="num">Orders</th><th class="num">Collected</th><th class="num">Expenses</th><th class="num">Net</th></tr>
+    ${S.branches.map(b=>{ const c=sum(pays.filter(p=>p.branch===b.name)), e=sum(exps.filter(x=>x.branch===b.name));
+      return `<tr><td>${esc(b.name)}</td><td class="num">${ords.filter(o=>o.branch===b.name).length}</td><td class="num">${peso(c)}</td><td class="num">${peso(e)}</td><td class="num">${peso(c-e)}</td></tr>`; }).join('')}
+    </table></div></div>`;
+  }
+  main.innerHTML = `
+  <div class="head"><div><h1>${greet}, ${esc(S.name.split(' ')[0])}</h1><div class="sub">${new Date().toLocaleDateString('en-PH',{weekday:'long',month:'long',day:'numeric'})} · ${seesAll()?esc(S.view==='All'?'All branches':S.view):esc(S.branch||'')}</div></div>
+  <button class="btn pri" onclick="go('neworder')">+ New Order</button></div>
+  <div class="grid kpis">
+    <div class="card"><div class="lbl">Collected today</div><div class="big">${peso(sum(pays))}</div><div class="sub">${Object.entries(byMethod).map(([k,v])=>esc(k)+' '+peso(v)).join(' · ')||'No payments yet'}</div></div>
+    <div class="card"><div class="lbl">Orders today</div><div class="big">${ords.length}</div></div>
+    <div class="card"><div class="lbl">Ready, not claimed</div><div class="big" style="color:var(--warn)">${ready.length}</div></div>
+    <div class="card"><div class="lbl">Unpaid balances</div><div class="big" style="color:var(--bad)">${peso(unpaid)}</div><div class="sub">${open.filter(o=>bal(o)>0).length} open orders</div></div>
+  </div>
+  <div class="grid two">
+    ${branchTable}
+    <div class="card"><div class="head" style="margin-bottom:8px"><h2 style="margin:0">Ready for 3+ days</h2><button class="btn sm" onclick="go('orders')">Open board</button></div>
+      ${overdue.length?`<div class="tw"><table><tr><th>Ticket</th><th>Customer</th><th class="num">Days</th><th class="num">Balance</th></tr>
+      ${overdue.slice(0,8).map(o=>`<tr class="click" onclick="orderDetail('${o.id}')"><td>${esc(o.ticket_no)}</td><td>${esc(o.cust_name)}</td><td class="num">${daysAgo(o.ready_at)}</td><td class="num">${peso(bal(o))}</td></tr>`).join('')}</table></div>`
+      :'<div class="empty">Nothing waiting too long. Nice.</div>'}</div>
+    <div class="card"><h2>In progress</h2><div class="grid" style="grid-template-columns:repeat(3,1fr);gap:8px;text-align:center">
+      ${['received','washing','ready'].map(s=>`<div><div class="big">${open.filter(o=>o.status===s).length}</div>${pill(s)}</div>`).join('')}</div></div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  Job Orders board
+// ══════════════════════════════════════════════════════════════════════════
+S.q='';
+async function pgOrders(main){
+  const T=iso(dayStart());
+  const [open, claimed] = await Promise.all([
+    api(`orders?select=*&status=in.(received,washing,ready)${bf()}&order=created_at`),
+    api(`orders?select=*&status=eq.claimed&claimed_at=gte.${T}${bf()}&order=claimed_at.desc`),
+  ]);
+  S._orders=[...open,...claimed];
+  main.innerHTML = `<div class="head"><h1>Job Orders</h1><div class="row-actions">
+    <input id="oq" placeholder="Search ticket, name, phone" style="width:240px" value="${esc(S.q)}" oninput="S.q=this.value;drawBoard()" aria-label="Search orders">
+    <button class="btn" onclick="findOldTicket()">Find old ticket</button>
+    <button class="btn pri" onclick="go('neworder')">+ New Order</button></div></div>
+    <div class="board" id="board"></div>`;
+  drawBoard();
+}
+function drawBoard(){
+  const q=S.q.toLowerCase().trim();
+  const list=S._orders.filter(o=>!q||[o.ticket_no,o.cust_name,o.cust_phone].join(' ').toLowerCase().includes(q));
+  const cols=[['received','Received','Start washing'],['washing','Washing','Mark ready'],['ready','Ready','Claim'],['claimed','Claimed today','']];
+  $('board').innerHTML = cols.map(([st,t,act])=>{
+    const l=list.filter(o=>o.status===st);
+    return `<div class="col"><div class="col-h"><span>${t}</span><span class="sub">${l.length}</span></div>
+    ${l.map(o=>{ const b=bal(o), late=(st==='ready'&&o.ready_at&&daysAgo(o.ready_at)>=3)||(st!=='ready'&&st!=='claimed'&&o.due_at&&new Date(o.due_at)<new Date());
+      return `<div class="tk ${late?'late':''}" onclick="orderDetail('${o.id}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter')orderDetail('${o.id}')">
+      <div class="tno">${esc(o.ticket_no)}</div>
+      <div>${esc(o.cust_name||'Walk-in')}</div><div class="sub">${esc(itemsText(o))}</div>
+      ${seesAll()&&S.view==='All'&&S.branches.length>1?`<div class="sub">${esc(o.branch)}</div>`:''}
+      <div class="sub">${st==='claimed'?'Claimed '+fmtDT(o.claimed_at):st==='ready'?'Ready '+fmtDT(o.ready_at):'Due '+fmtDT(o.due_at)}</div>
+      <div style="font-weight:700;color:${b?'var(--warn)':'var(--ok)'}">${b?'Balance '+peso(b):'Paid'}</div>
+      ${act?`<button class="btn ${st==='ready'?'ok':'pri'} sm" onclick="event.stopPropagation();advance('${o.id}',this)">${st==='ready'&&b?'Collect '+peso(b)+' & claim':act}</button>`:''}
+      </div>`; }).join('') || '<div class="empty">None</div>'}</div>`;
+  }).join('');
+}
+async function advance(id, btn){
+  const o=S._orders.find(x=>x.id===id); if(!o) return;
+  if(o.status==='ready') return claimFlow(o);
+  const next=o.status==='received'?'washing':'ready';
+  busy(btn,true,'…');
+  try{
+    const patch={status:next}; if(next==='ready') patch.ready_at=iso(new Date());
+    await api(`orders?id=eq.${id}`,'PATCH',patch); Object.assign(o,patch); audit('status',`${o.ticket_no} → ${next}`);
+    toast(`${o.ticket_no} is now ${STATUS[next]}`); drawBoard();
+  }catch(e){ busy(btn,false); toast(e.message); }
+}
+function claimFlow(o){
+  const b=bal(o);
+  const doClaim = async (btn, pay) => {
+    busy(btn,true);
+    try{
+      if(pay>0) await api('payments','POST',{order_id:o.id, branch:o.branch, amount:pay, method:$('cm')?.value||'Cash'});
+      await api(`orders?id=eq.${o.id}`,'PATCH',{status:'claimed', claimed_at:iso(new Date())});
+      audit('claim',`${o.ticket_no} paid ${pay}`);
+      closeModal(); toast(`${o.ticket_no} claimed`); refresh();
+    }catch(e){ busy(btn,false); toast(e.message); }
+  };
+  if(b<=0) return confirmBox(`Release ${o.ticket_no} to ${o.cust_name||'customer'}?`,'Claim').then(ok=>ok&&doClaim(null,0));
+  openModal(`Claim ${o.ticket_no}`, `<div>${esc(o.cust_name)} · ${esc(itemsText(o))}</div>
+    <div class="sum-row"><span>Total</span><b>${peso(o.total)}</b></div><div class="sum-row"><span>Already paid</span><span>${peso(o.paid)}</span></div>
+    <div class="sum-row" style="font-size:20px"><span>Balance to collect</span><b>${peso(b)}</b></div>
+    <label class="f">Payment method<select id="cm"><option>Cash</option><option>GCash</option><option>Maya</option><option>Card</option></select></label>`,
+    [{label:'Cancel', fn:closeModal},{label:`Collect ${peso(b)} & claim`, cls:'ok', fn:btn=>doClaim(btn,b)}]);
+}
+async function findOldTicket(){
+  openModal('Find a ticket', `<label class="f">Ticket number or phone<input id="ft" placeholder="BR1-000123 or 0917…"></label><div id="fr"></div>`,
+    [{label:'Search', cls:'pri', fn: async b=>{
+      const v=$('ft').value.trim(); if(!v) return; busy(b,true,'Searching…');
+      try{ const r=await api(`orders?select=id,ticket_no,cust_name,status,total,paid,created_at&or=(ticket_no.ilike.*${enc(v)}*,cust_phone.ilike.*${enc(v)}*)${bf()}&order=created_at.desc&limit=20`);
+        $('fr').innerHTML = r.length?`<div class="tw"><table>${r.map(o=>`<tr class="click" onclick="orderDetail('${o.id}')"><td>${esc(o.ticket_no)}</td><td>${esc(o.cust_name)}</td><td>${pill(o.status)}</td><td class="num">${peso(o.total)}</td></tr>`).join('')}</table></div>`:'<div class="empty">No match.</div>';
+      }catch(e){ toast(e.message); } busy(b,false);
+    }}]);
+}
+
+// Order detail (payments, SMS, print, cancel)
+async function orderDetail(id){
+  let o, pays;
+  try{ [o,pays]=await Promise.all([ api(`orders?id=eq.${id}&select=*`).then(r=>r[0]), api(`payments?order_id=eq.${id}&select=*&order=created_at`) ]); }
+  catch(e){ return toast(e.message); }
+  if(!o) return toast('Order not found');
+  const b=bal(o);
+  const sms = `Hi ${o.cust_name||''}! Your laundry (${o.ticket_no}) at ${SHOP_NAME} is ready for pickup.${b?' Balance: '+peso(b)+'.':''} Thank you!`;
+  const btns=[];
+  if(isManager() && !['claimed','cancelled'].includes(o.status)) btns.push({label:'Cancel order', cls:'bad', fn: async()=>{ if(await confirmBox(`Cancel ${o.ticket_no}? This cannot be undone.`,'Cancel order',true)){ try{ await api(`orders?id=eq.${o.id}`,'PATCH',{status:'cancelled'}); audit('cancel',o.ticket_no); toast('Order cancelled'); refresh(); }catch(e){toast(e.message);} } }});
+  btns.push({label:'Print ticket', fn:()=>printTicket(o)});
+  if(b>0 && o.status!=='cancelled') btns.push({label:'Add payment', cls:'pri', fn:()=>addPayment(o)});
+  openModal(o.ticket_no, `
+    <div class="head"><div><b>${esc(o.cust_name||'Walk-in')}</b><div class="sub">${esc(o.cust_phone||'')}${o.cust_phone?' · ':''}${esc(o.branch)}</div></div>${pill(o.status)}</div>
+    <div class="tw"><table><tr><th>Service</th><th class="num">Qty</th><th class="num">Price</th><th class="num">Amount</th></tr>
+      ${(o.items||[]).map(i=>`<tr><td>${esc(i.name)}</td><td class="num">${i.qty} ${esc(i.unit)}</td><td class="num">${peso(i.price)}</td><td class="num">${peso(i.subtotal)}</td></tr>`).join('')}
+      <tr><td colspan="3"><b>Total</b></td><td class="num"><b>${peso(o.total)}</b></td></tr></table></div>
+    <div class="sub">Dropped off ${fmtDT(o.created_at)} · Due ${fmtDT(o.due_at)}${o.ready_at?' · Ready '+fmtDT(o.ready_at):''}${o.claimed_at?' · Claimed '+fmtDT(o.claimed_at):''}</div>
+    ${o.notes?`<div class="card" style="background:var(--bg)">${esc(o.notes)}</div>`:''}
+    <div><b>Payments</b>${pays.length?pays.map(p=>`<div class="sum-row"><span>${fmtDT(p.created_at)} · ${esc(p.method)} · ${esc(p.received_by||'')}</span><span>${peso(p.amount)}</span></div>`).join(''):'<div class="empty">No payments yet</div>'}
+      <div class="sum-row" style="font-weight:700"><span>Balance</span><span style="color:${b?'var(--bad)':'var(--ok)'}">${peso(b)}</span></div></div>
+    ${o.cust_phone && o.status==='ready' ? `<div class="card" style="background:var(--bg)"><div class="lbl">Text the customer</div><div style="margin:6px 0" id="smsTxt">${esc(sms)}</div>
+      <div class="row-actions"><a class="btn sm" href="sms:${esc(o.cust_phone.replace(/\s/g,''))}?body=${enc(sms)}">Open SMS app</a><button class="btn sm" onclick="copyText($('smsTxt').textContent)">Copy message</button></div></div>`:''}
+  `, btns);
+}
+function addPayment(o){
+  const b=bal(o);
+  openModal(`Payment · ${o.ticket_no}`, `<div class="sub">Balance: ${peso(b)}</div>
+    <label class="f">Amount<input id="pa" type="number" min="1" step="0.01" value="${b}"></label>
+    <label class="f">Method<select id="pm"><option>Cash</option><option>GCash</option><option>Maya</option><option>Card</option></select></label>`,
+    [{label:'Cancel', fn:closeModal},{label:'Save payment', cls:'pri', fn: async btn=>{
+      const a=+$('pa').value; if(!(a>0)) return toast('Enter an amount'); if(a>b+0.001) return toast('That is more than the balance');
+      busy(btn,true); try{ await api('payments','POST',{order_id:o.id, branch:o.branch, amount:a, method:$('pm').value}); audit('payment',`${o.ticket_no} ${a}`); closeModal(); toast('Payment saved'); refresh(); }catch(e){ busy(btn,false); toast(e.message); }
+    }}]);
+}
+function copyText(t){ (navigator.clipboard?.writeText(t)||Promise.reject()).then(()=>toast('Copied'),()=>toast('Could not copy. Select the text instead.')); }
+function printTicket(o){
+  const br=S.branches.find(b=>b.name===o.branch)||{};
+  openPrint(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(o.ticket_no)}</title><style>
+  body{font-family:monospace;width:58mm;margin:0 auto;padding:6px;font-size:12px}h1{font-size:16px;text-align:center;margin:4px 0}
+  .c{text-align:center}.r{display:flex;justify-content:space-between}hr{border:0;border-top:1px dashed #000}.big{font-size:20px;font-weight:bold;text-align:center;margin:6px 0}
+  </style></head><body onload="setTimeout(()=>window.print(),300)">
+  <h1>${esc(SHOP_NAME)}</h1><div class="c">${esc(o.branch)}${br.phone?'<br>'+esc(br.phone):''}</div><hr>
+  <div class="big">${esc(o.ticket_no)}</div><div>${esc(o.cust_name||'Walk-in')}<br>${esc(o.cust_phone||'')}</div><hr>
+  ${(o.items||[]).map(i=>`<div class="r"><span>${esc(i.name)} ${i.qty}${esc(i.unit)}</span><span>${peso(i.subtotal)}</span></div>`).join('')}<hr>
+  <div class="r"><b>TOTAL</b><b>${peso(o.total)}</b></div><div class="r"><span>Paid</span><span>${peso(o.paid)}</span></div><div class="r"><b>BALANCE</b><b>${peso(bal(o))}</b></div><hr>
+  <div>In: ${fmtDT(o.created_at)}<br>Pickup: ${fmtDT(o.due_at)}</div><hr><div class="c">Please bring this ticket when claiming.<br>Thank you!</div>
+  <div class="c" style="margin-top:8px">Not an official receipt</div></body></html>`);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  New Order
+// ══════════════════════════════════════════════════════════════════════════
+let NO = null;
+function pgNewOrder(main){
+  const pre = S.arg||{};
+  NO = { lines:[], cust: pre.cust||null };
+  const defBranch = seesAll() ? (S.view!=='All'?S.view:(S.branches[0]?.name||'')) : S.branch;
+  const due=new Date(); due.setHours(17,0,0,0); if(due<new Date()) due.setDate(due.getDate()+1);
+  const dueVal = ymd(due)+'T'+pad(due.getHours())+':'+pad(due.getMinutes());
+  main.innerHTML = `<h1>New Job Order</h1>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));align-items:start">
+   <div class="grid">
+    <div class="card"><div class="form">
+      ${seesAll()&&S.branches.length>1?`<label class="f full">Branch<select id="nb">${S.branches.map(b=>`<option ${b.name===defBranch?'selected':''}>${esc(b.name)}</option>`).join('')}</select></label>`:''}
+      <label class="f">Customer phone<input id="nph" inputmode="tel" placeholder="09XX XXX XXXX" value="${esc(NO.cust?.phone||'')}" onblur="lookupCust()"></label>
+      <label class="f">Customer name<input id="nnm" value="${esc(NO.cust?.name||'')}" placeholder="Name"></label>
+      <div class="full sub" id="custInfo">${NO.cust?'Returning customer':'Type the phone number to find a returning customer.'}</div>
+    </div></div>
+    <div class="card"><h2>Tap a service to add it</h2>
+      <div class="svcs">${S.services.filter(s=>s.active!==false).map(s=>`<button class="svc" onclick="addLine('${s.id}')"><b>${esc(s.name)}</b><br><span class="sub">${peso(s.price)} / ${esc(s.unit)}${+s.min_qty?` · min ${+s.min_qty} ${esc(s.unit)}`:''}</span></button>`).join('')||'<div class="empty">No services yet. Add them in Settings.</div>'}</div>
+      <div id="lines" style="margin-top:14px"></div>
+    </div>
+    <div class="card"><div class="form">
+      <label class="f">Pickup date &amp; time<input id="ndue" type="datetime-local" value="${dueVal}"></label>
+      <label class="f full">Notes (optional)<textarea id="nnote" placeholder="e.g. no fabric softener, 2 white shirts separate"></textarea></label>
+    </div></div>
+   </div>
+   <aside class="card" style="position:sticky;top:80px;display:flex;flex-direction:column;gap:8px">
+    <h2>Summary</h2><div id="sum"></div>
+    <label class="f">Pay now<input id="npay" type="number" min="0" step="0.01" value="0" oninput="drawSum()"></label>
+    <div class="row-actions"><button class="btn sm" onclick="$('npay').value=NO.total;drawSum()">Full</button><button class="btn sm" onclick="$('npay').value=Math.ceil(NO.total/2);drawSum()">Half</button><button class="btn sm" onclick="$('npay').value=0;drawSum()">Pay on claim</button></div>
+    <label class="f">Method<select id="nmeth"><option>Cash</option><option>GCash</option><option>Maya</option><option>Card</option></select></label>
+    <button class="btn pri" id="nsave" style="min-height:52px;margin-top:6px" onclick="saveOrder(this)">Save &amp; print ticket</button>
+   </aside>
+  </div>`;
+  drawLines();
+}
+async function lookupCust(){
+  const ph=$('nph').value.replace(/\s/g,''); if(ph.length<7) return;
+  try{ const r=await api(`customers?phone=eq.${enc(ph)}&select=*`);
+    if(r[0]){ NO.cust=r[0]; if(!$('nnm').value) $('nnm').value=r[0].name; $('custInfo').innerHTML=`<span style="color:var(--ok);font-weight:700">Returning customer</span>${r[0].tags?' · '+esc(r[0].tags):''}${r[0].notes?'<br>Note: '+esc(r[0].notes):''}`; }
+    else { NO.cust=null; $('custInfo').textContent='New customer. They will be saved with this order.'; }
+  }catch(e){}
+}
+function addLine(sid){
+  const s=S.services.find(x=>x.id===sid); if(!s) return;
+  const ex=NO.lines.find(l=>l.sid===sid); if(ex){ ex.qty=+ex.qty+1; }
+  else NO.lines.push({sid, name:s.name, unit:s.unit, price:+s.price, min:+s.min_qty||0, qty: s.unit==='kg'?(+s.min_qty||1):1});
+  drawLines();
+}
+const lineAmt = l => Math.round(Math.max(+l.qty||0, l.unit==='kg'?l.min:0) * l.price * 100)/100;
+function drawLines(){
+  $('lines').innerHTML = NO.lines.length ? `<div class="line sub" style="font-size:12px"><span>Service</span><span>Qty</span><span class="num">Amount</span><span></span></div>`+
+    NO.lines.map((l,i)=>`<div class="line"><span>${esc(l.name)}${l.unit==='kg'&&l.min&&l.qty<l.min?`<br><span class="sub" style="font-size:12px">charged as ${l.min} kg minimum</span>`:''}</span>
+    <input type="number" min="0" step="${l.unit==='kg'?'0.1':'1'}" value="${l.qty}" aria-label="Quantity for ${esc(l.name)}" oninput="NO.lines[${i}].qty=this.value;drawSum();">
+    <span class="num" id="la${i}">${peso(lineAmt(l))}</span><button class="x" onclick="NO.lines.splice(${i},1);drawLines()" aria-label="Remove">✕</button></div>`).join('')
+    : '<div class="empty">No services added yet.</div>';
+  drawSum();
+}
+function drawSum(){
+  NO.lines.forEach((l,i)=>{ const el=$('la'+i); if(el) el.textContent=peso(lineAmt(l)); });
+  NO.total = NO.lines.reduce((s,l)=>s+lineAmt(l),0);
+  const pay=Math.min(+$('npay')?.value||0, NO.total);
+  $('sum').innerHTML = NO.lines.map(l=>`<div class="sum-row"><span>${esc(l.name)} ${+l.qty} ${esc(l.unit)}</span><span>${peso(lineAmt(l))}</span></div>`).join('') +
+    `<div class="sum-row" style="border-top:1px solid var(--line);padding-top:10px;font-weight:700;font-size:20px"><span>Total</span><span>${peso(NO.total)}</span></div>
+     <div class="sum-row sub"><span>Balance on claim</span><span>${peso(NO.total-pay)}</span></div>`;
+}
+async function saveOrder(btn){
+  const name=$('nnm').value.trim(), phone=$('nph').value.replace(/\s/g,'');
+  const branch = $('nb') ? $('nb').value : (seesAll()?S.branches[0]?.name:S.branch);
+  if(!NO.lines.length || NO.total<=0) return toast('Add at least one service');
+  if(!name) return toast('Enter the customer name');
+  if(!branch) return toast('Add a branch in Settings first');
+  const pay=Math.min(+$('npay').value||0, NO.total);
+  busy(btn,true);
+  try{
+    let cust=NO.cust;
+    if(!cust || cust.phone!==phone){
+      const row={name, phone:phone||null};
+      const r = await api(phone?'customers?on_conflict=phone':'customers','POST',row); cust=Array.isArray(r)?r[0]:null;
+    } else if(cust.name!==name){ api(`customers?id=eq.${cust.id}`,'PATCH',{name}).catch(()=>{}); }
+    const items = NO.lines.map(l=>({name:l.name, unit:l.unit, qty:+l.qty, price:l.price, subtotal:lineAmt(l)}));
+    const due=$('ndue').value ? iso(new Date($('ndue').value)) : null;
+    const [o] = await api('orders','POST',{branch, customer_id:cust?.id||null, cust_name:name, cust_phone:phone||null, items, total:NO.total, due_at:due, notes:$('nnote').value.trim()||null});
+    if(pay>0){ await api('payments','POST',{order_id:o.id, branch:o.branch, amount:pay, method:$('nmeth').value}); o.paid=pay; }
+    audit('new order',`${o.ticket_no} ${NO.total}`);
+    S.arg=null; go('orders');
+    openModal('Order saved', `<div class="big">${esc(o.ticket_no)}</div><div>${esc(name)} · ${peso(NO.total)}${pay>0?' · paid '+peso(pay):''}</div>`,
+      [{label:'Done', fn:closeModal},{label:'Print ticket', cls:'pri', fn:()=>{ printTicket(o); closeModal(); }}]);
+  }catch(e){ busy(btn,false); toast('Could not save: '+e.message); }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  Customers (CRM)
+// ══════════════════════════════════════════════════════════════════════════
+S.cq='';
+async function pgCustomers(main){
+  main.innerHTML = `<div class="head"><h1>Customers</h1><input id="cq" placeholder="Search name or phone" style="width:260px" value="${esc(S.cq)}" aria-label="Search customers"></div><div class="card"><div id="clist" class="tw"></div></div>`;
+  let t; $('cq').oninput=e=>{ S.cq=e.target.value; clearTimeout(t); t=setTimeout(loadCust,300); };
+  await loadCust();
+}
+async function loadCust(){
+  const q=S.cq.trim().replace(/[,()*]/g,'');
+  const r = await api(`customers?select=*${q?`&or=(name.ilike.*${enc(q)}*,phone.ilike.*${enc(q)}*)`:''}&order=created_at.desc&limit=60`);
+  $('clist').innerHTML = r.length ? `<table><tr><th>Name</th><th>Phone</th><th class="hide-sm">Tags</th><th class="hide-sm">Since</th></tr>${r.map(c=>`<tr class="click" onclick="go('customer','${c.id}')"><td>${esc(c.name)}</td><td>${esc(c.phone||'')}</td><td class="hide-sm">${esc(c.tags||'')}</td><td class="hide-sm">${fmtD(c.created_at)}</td></tr>`).join('')}</table>` : '<div class="empty">No customers found.</div>';
+}
+async function pgCustomer(main){
+  $('ttl').textContent='Customer';
+  const id=S.arg;
+  const [c, ords] = await Promise.all([ api(`customers?id=eq.${id}&select=*`).then(r=>r[0]), api(`orders?customer_id=eq.${id}&select=*&order=created_at.desc&limit=200`) ]);
+  if(!c){ main.innerHTML='<div class="empty">Customer not found.</div>'; return; }
+  S._cur={id:c.id,name:c.name,phone:c.phone};
+  const valid=ords.filter(o=>o.status!=='cancelled'), claimedN=valid.filter(o=>o.status==='claimed').length;
+  const spent=valid.reduce((s,o)=>s+(+o.paid||0),0), owed=valid.reduce((s,o)=>s+bal(o),0);
+  const loyal = claimedN % LOYALTY_EVERY;
+  main.innerHTML = `<div class="head"><div><h1>${esc(c.name)}</h1><div class="sub">${esc(c.phone||'No phone')}${c.address?' · '+esc(c.address):''} · customer since ${fmtD(c.created_at)}</div>
+    <div class="row-actions" style="margin-top:8px">${(c.tags||'').split(',').filter(t=>t.trim()).map(t=>`<span class="pill p-received">${esc(t.trim())}</span>`).join('')}</div></div>
+    <div class="row-actions"><button class="btn" onclick="go('customers')">Back</button><button class="btn" onclick="editCust('${c.id}')">Edit</button><button class="btn pri" onclick="go('neworder',{cust:S._cur})">+ New Order</button></div></div>
+  <div class="grid kpis">
+    <div class="card"><div class="lbl">Visits</div><div class="big">${valid.length}</div></div>
+    <div class="card"><div class="lbl">Total paid</div><div class="big">${peso(spent)}</div></div>
+    <div class="card"><div class="lbl">Balance</div><div class="big" style="color:${owed?'var(--bad)':'var(--ok)'}">${peso(owed)}</div></div>
+    <div class="card"><div class="lbl">Loyalty card</div><div class="big">${loyal} / ${LOYALTY_EVERY}</div><div class="sub">${loyal===0&&claimedN?'Free load earned on this visit!':`${LOYALTY_EVERY-loyal} more for a free load`}</div></div>
+  </div>
+  <div class="grid two">
+    <div class="card"><h2>Order history</h2>${ords.length?`<div class="tw"><table><tr><th>Date</th><th>Ticket</th><th>Services</th><th class="num">Total</th><th>Status</th></tr>
+      ${ords.map(o=>`<tr class="click" onclick="orderDetail('${o.id}')"><td>${fmtD(o.created_at)}</td><td>${esc(o.ticket_no)}</td><td>${esc(itemsText(o))}</td><td class="num">${peso(o.total)}</td><td>${pill(o.status)}${bal(o)&&o.status!=='cancelled'?' <span class="pill p-cancelled">unpaid</span>':''}</td></tr>`).join('')}</table></div>`:'<div class="empty">No orders yet.</div>'}</div>
+    <div class="card"><h2>Notes</h2><div style="white-space:pre-wrap">${esc(c.notes||'No notes yet.')}</div></div>
+  </div>`;
+}
+async function editCust(id){
+  const c=(await api(`customers?id=eq.${id}&select=*`))[0];
+  openModal('Edit customer', `<div class="form">
+    <label class="f">Name<input id="en" value="${esc(c.name)}"></label><label class="f">Phone<input id="ep" value="${esc(c.phone||'')}"></label>
+    <label class="f full">Address<input id="ea" value="${esc(c.address||'')}"></label>
+    <label class="f full">Tags (comma separated)<input id="et" value="${esc(c.tags||'')}" placeholder="Regular, Prefers unscented"></label>
+    <label class="f full">Notes<textarea id="eo">${esc(c.notes||'')}</textarea></label></div>`,
+    [{label:'Cancel',fn:closeModal},{label:'Save',cls:'pri',fn:async b=>{ busy(b,true);
+      try{ await api(`customers?id=eq.${id}`,'PATCH',{name:$('en').value.trim(), phone:$('ep').value.replace(/\s/g,'')||null, address:$('ea').value.trim()||null, tags:$('et').value.trim()||null, notes:$('eo').value.trim()||null}); closeModal(); toast('Saved'); refresh(); }
+      catch(e){ busy(b,false); toast(e.message.includes('duplicate')?'Another customer already has that phone number':e.message); } }}]);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  Expenses
+// ══════════════════════════════════════════════════════════════════════════
+const EXP_CATS=['Detergent & supplies','Plastic bags','Electricity','Water','LPG / Gas','Rent','Salary / Allowance','Repairs','Other'];
+async function pgExpenses(main){
+  const m0=new Date(); m0.setDate(1);
+  const r = await api(`expenses?select=*&spent_on=gte.${ymd(m0)}${bf()}&order=spent_on.desc,created_at.desc`);
+  const tot=r.reduce((s,x)=>s+(+x.amount),0);
+  main.innerHTML = `<div class="head"><div><h1>Expenses</h1><div class="sub">This month: <b>${peso(tot)}</b></div></div><button class="btn pri" onclick="addExpense()">+ Add expense</button></div>
+  <div class="card tw">${r.length?`<table><tr><th>Date</th>${seesAll()?'<th>Branch</th>':''}<th>Category</th><th>Notes</th><th class="num">Amount</th><th class="hide-sm">By</th></tr>
+  ${r.map(x=>`<tr><td>${fmtD(x.spent_on)}</td>${seesAll()?`<td>${esc(x.branch)}</td>`:''}<td>${esc(x.category)}</td><td>${esc(x.notes||'')}</td><td class="num">${peso(x.amount)}</td><td class="hide-sm">${esc(x.created_by||'')}</td></tr>`).join('')}</table>`:'<div class="empty">No expenses recorded this month.</div>'}</div>`;
+}
+function addExpense(){
+  const defB = S.view!=='All'?S.view:S.branches[0]?.name;
+  openModal('Add expense', `<div class="form">
+    ${seesAll()?`<label class="f full">Branch<select id="xb">${S.branches.map(b=>`<option ${b.name===defB?'selected':''}>${esc(b.name)}</option>`).join('')}</select></label>`:''}
+    <label class="f">Category<select id="xc">${EXP_CATS.map(c=>`<option>${c}</option>`).join('')}</select></label>
+    <label class="f">Amount<input id="xa" type="number" min="1" step="0.01"></label>
+    <label class="f">Date<input id="xd" type="date" value="${ymd(new Date())}"></label>
+    <label class="f full">Notes<input id="xn" placeholder="e.g. 2 gallons detergent"></label></div>`,
+    [{label:'Cancel',fn:closeModal},{label:'Save',cls:'pri',fn:async b=>{
+      const a=+$('xa').value; if(!(a>0)) return toast('Enter an amount');
+      busy(b,true); try{ await api('expenses','POST',{branch:$('xb')?$('xb').value:S.branch, category:$('xc').value, amount:a, spent_on:$('xd').value, notes:$('xn').value.trim()||null}); closeModal(); toast('Expense saved'); refresh(); }
+      catch(e){ busy(b,false); toast(e.message); } }}]);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  Reports
+// ══════════════════════════════════════════════════════════════════════════
+S.rf=null; S.rt=null;
+async function pgReports(main){
+  const now=new Date(), m0=new Date(now.getFullYear(),now.getMonth(),1);
+  S.rf=S.rf||ymd(m0); S.rt=S.rt||ymd(now);
+  const from=iso(new Date(S.rf+'T00:00')), to=iso(new Date(new Date(S.rt+'T00:00').getTime()+864e5));
+  const [pays, ords, exps] = await Promise.all([
+    api(`payments?select=amount,method,branch,created_at&created_at=gte.${from}&created_at=lt.${to}${bf()}`),
+    api(`orders?select=branch,items,total,status,created_at&created_at=gte.${from}&created_at=lt.${to}&status=neq.cancelled${bf()}`),
+    api(`expenses?select=amount,branch,category&spent_on=gte.${S.rf}&spent_on=lte.${S.rt}${bf()}`),
+  ]);
+  const sum=(a,f='amount')=>a.reduce((s,x)=>s+(+x[f]||0),0);
+  const brs = seesAll() ? (S.view==='All'?S.branches.map(b=>b.name):[S.view]) : [S.branch];
+  const rows = brs.map(b=>{ const c=sum(pays.filter(p=>p.branch===b)), e=sum(exps.filter(x=>x.branch===b)), o=ords.filter(x=>x.branch===b); return [b,o.length,sum(o,'total'),c,e,c-e]; });
+  const svc={}; ords.forEach(o=>(o.items||[]).forEach(i=>{ const k=i.name; svc[k]=svc[k]||{q:0,u:i.unit,a:0}; svc[k].q+=+i.qty; svc[k].a+=+i.subtotal; }));
+  const cat={}; exps.forEach(x=>cat[x.category]=(cat[x.category]||0)+(+x.amount));
+  S._rep={rows, svc, cat};
+  main.innerHTML = `<div class="head"><h1>Reports</h1><div class="row-actions">
+    <label class="f">From<input type="date" id="rf" value="${S.rf}"></label><label class="f">To<input type="date" id="rt" value="${S.rt}"></label>
+    <button class="btn" style="align-self:flex-end" onclick="S.rf=$('rf').value;S.rt=$('rt').value;refresh()">Show</button>
+    <button class="btn" style="align-self:flex-end" onclick="exportReport()">Download CSV</button></div></div>
+  <div class="grid kpis">
+    <div class="card"><div class="lbl">Orders</div><div class="big">${ords.length}</div></div>
+    <div class="card"><div class="lbl">Sales (orders)</div><div class="big">${peso(sum(ords,'total'))}</div></div>
+    <div class="card"><div class="lbl">Collected</div><div class="big">${peso(sum(pays))}</div></div>
+    <div class="card"><div class="lbl">Expenses</div><div class="big">${peso(sum(exps))}</div></div>
+    <div class="card"><div class="lbl">Net cash</div><div class="big" style="color:var(--ok)">${peso(sum(pays)-sum(exps))}</div></div>
+  </div>
+  <div class="grid two">
+    <div class="card tw"><h2>By branch</h2><table><tr><th>Branch</th><th class="num">Orders</th><th class="num">Sales</th><th class="num">Collected</th><th class="num">Expenses</th><th class="num">Net</th></tr>
+      ${rows.map(r=>`<tr><td>${esc(r[0])}</td><td class="num">${r[1]}</td>${r.slice(2).map(v=>`<td class="num">${peso(v)}</td>`).join('')}</tr>`).join('')}</table></div>
+    <div class="card tw"><h2>By service</h2>${Object.keys(svc).length?`<table><tr><th>Service</th><th class="num">Qty</th><th class="num">Sales</th></tr>
+      ${Object.entries(svc).sort((a,b)=>b[1].a-a[1].a).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${Math.round(v.q*10)/10} ${esc(v.u)}</td><td class="num">${peso(v.a)}</td></tr>`).join('')}</table>`:'<div class="empty">No orders in this range.</div>'}</div>
+    <div class="card tw"><h2>Expenses by category</h2>${Object.keys(cat).length?`<table>${Object.entries(cat).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="num">${peso(v)}</td></tr>`).join('')}</table>`:'<div class="empty">No expenses in this range.</div>'}</div>
+  </div>`;
+}
+function exportReport(){
+  const R=S._rep; if(!R) return;
+  const out=[[`Report ${S.rf} to ${S.rt}`],[],['Branch','Orders','Sales','Collected','Expenses','Net'],...R.rows,[],['Service','Qty','Unit','Sales'],
+    ...Object.entries(R.svc).map(([k,v])=>[k,v.q,v.u,v.a]),[],['Expense category','Amount'],...Object.entries(R.cat)];
+  downloadCSV(`laundry-report-${S.rf}-to-${S.rt}.csv`, out);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  Settings: branches, services, staff accounts
+// ══════════════════════════════════════════════════════════════════════════
+const ROLES_FOR = { Developer:['Owner','Admin','BranchAdmin','Staff'], Owner:['Admin','BranchAdmin','Staff'], Admin:['BranchAdmin','Staff'], BranchAdmin:['Staff'] };
+async function pgSettings(main){
+  const accs = await api('accounts?select=id,name,role,branch,active,lastlogin&order=role,id');
+  const master = seesAll();
+  main.innerHTML = `<h1>Settings</h1>
+  ${master?`<div class="card"><div class="head"><h2 style="margin:0">Branches</h2><button class="btn sm pri" onclick="editBranch()">+ Add branch</button></div>
+    <div class="tw"><table><tr><th>Name</th><th>Ticket code</th><th>Phone</th><th>Status</th><th></th></tr>${(S.branchesAll||S.branches).map((b,i)=>`<tr><td>${esc(b.name)}</td><td>${esc(b.code)}</td><td>${esc(b.phone||'')}</td><td>${b.active===false?'Closed':'Open'}</td><td><button class="btn sm" onclick="editBranch(${i})">Edit</button></td></tr>`).join('')}</table></div></div>
+  <div class="card"><div class="head"><h2 style="margin:0">Services &amp; prices</h2><button class="btn sm pri" onclick="editService()">+ Add service</button></div>
+    <div class="tw"><table><tr><th>Service</th><th class="num">Price</th><th>Unit</th><th class="num">Minimum</th><th>Status</th><th></th></tr>${S.services.map(s=>`<tr><td>${esc(s.name)}</td><td class="num">${peso(s.price)}</td><td>${esc(s.unit)}</td><td class="num">${+s.min_qty||'-'}</td><td>${s.active===false?'Hidden':'Active'}</td><td><button class="btn sm" onclick="editService('${s.id}')">Edit</button></td></tr>`).join('')}</table></div></div>`:''}
+  <div class="card"><div class="head"><h2 style="margin:0">Staff accounts</h2><button class="btn sm pri" onclick="editAccount()">+ Add account</button></div>
+    <div class="tw"><table><tr><th>Username</th><th>Name</th><th>Role</th><th>Branch</th><th>Last login</th><th></th></tr>
+    ${accs.map(a=>`<tr><td>${esc(a.id)}</td><td>${esc(a.name)}</td><td>${esc(a.role)}${a.active===false?' <span class="pill p-cancelled">disabled</span>':''}</td><td>${esc(a.branch||'All')}</td><td>${fmtDT(a.lastlogin)||'Never'}</td>
+    <td class="row-actions">${a.id!==S.user&&(ROLES_FOR[S.role]||[]).includes(a.role)?`<button class="btn sm" onclick="editAccount('${esc(a.id)}')">Edit</button><button class="btn sm" onclick="resetPw('${esc(a.id)}')">Reset password</button>`:''}</td></tr>`).join('')}</table></div></div>`;
+  S._accs=accs;
+}
+async function reloadSetup(){ const [br,sv]=await Promise.all([api('branches?select=*&order=name'),api('services?select=*&order=sort,name')]); S.branchesAll=br; S.branches=br.filter(b=>b.active!==false); S.services=sv; }
+function editBranch(idx){
+  const b=idx===undefined?{}:(S.branchesAll||S.branches)[idx]; const name=b.name;
+  openModal(name?'Edit branch':'Add branch', `<div class="form">
+    <label class="f">Branch name<input id="bn" value="${esc(b.name||'')}" ${name?'disabled':''}></label>
+    <label class="f">Ticket code (short)<input id="bc" value="${esc(b.code||'')}" placeholder="BR2" maxlength="6"></label>
+    <label class="f">Phone<input id="bp" value="${esc(b.phone||'')}"></label>
+    <label class="f full">Address<input id="ba" value="${esc(b.address||'')}"></label>
+    ${name?`<label class="f">Status<select id="bs"><option value="1">Open</option><option value="0" ${b.active===false?'selected':''}>Closed</option></select></label>`:''}</div>`,
+    [{label:'Cancel',fn:closeModal},{label:'Save',cls:'pri',fn:async btn=>{
+      const row={name:name||$('bn').value.trim(), code:$('bc').value.trim().toUpperCase(), phone:$('bp').value.trim()||null, address:$('ba').value.trim()||null};
+      if($('bs')) row.active=$('bs').value==='1';
+      if(!row.name||!row.code) return toast('Name and ticket code are required');
+      busy(btn,true); try{ await api('branches?on_conflict=name','POST',row); await reloadSetup(); closeModal(); toast('Branch saved'); startApp().then(()=>go('settings')); }catch(e){ busy(btn,false); toast(e.message.includes('duplicate')?'That ticket code is already used':e.message); } }}]);
+}
+function editService(id){
+  const s=S.services.find(x=>x.id===id)||{unit:'kg'};
+  openModal(id?'Edit service':'Add service', `<div class="form">
+    <label class="f full">Service name<input id="sn" value="${esc(s.name||'')}"></label>
+    <label class="f">Price (₱)<input id="sp" type="number" min="0" step="0.01" value="${s.price??''}"></label>
+    <label class="f">Per<select id="su">${['kg','load','pc'].map(u=>`<option ${s.unit===u?'selected':''}>${u}</option>`).join('')}</select></label>
+    <label class="f">Minimum (kg only)<input id="sm" type="number" min="0" step="0.5" value="${+s.min_qty||0}"></label>
+    <label class="f">Order in list<input id="so" type="number" value="${s.sort??S.services.length+1}"></label>
+    <label class="f">Status<select id="ss"><option value="1">Active</option><option value="0" ${s.active===false?'selected':''}>Hidden</option></select></label></div>`,
+    [{label:'Cancel',fn:closeModal},{label:'Save',cls:'pri',fn:async btn=>{
+      const row={name:$('sn').value.trim(), price:+$('sp').value, unit:$('su').value, min_qty:+$('sm').value||0, sort:+$('so').value||0, active:$('ss').value==='1'};
+      if(!row.name||!(row.price>=0)) return toast('Enter a name and price');
+      busy(btn,true); try{ if(id) await api(`services?id=eq.${id}`,'PATCH',row); else await api('services','POST',row); await reloadSetup(); audit('price list',row.name+' '+row.price); closeModal(); toast('Saved'); refresh(); }catch(e){ busy(btn,false); toast(e.message); } }}]);
+}
+function editAccount(id){
+  const a=(S._accs||[]).find(x=>x.id===id)||{role:'Staff', branch:S.branch};
+  const roles=ROLES_FOR[S.role]||[];
+  openModal(id?'Edit account':'Add account', `<div class="form">
+    <label class="f">Username<input id="au" value="${esc(a.id||'')}" autocapitalize="none" ${id?'disabled':''}></label>
+    <label class="f">Full name<input id="an" value="${esc(a.name||'')}"></label>
+    <label class="f">Role<select id="ar">${roles.map(r=>`<option ${a.role===r?'selected':''}>${r}</option>`).join('')}</select></label>
+    <label class="f">Branch<select id="ab" ${seesAll()?'':'disabled'}><option value="">All branches (owner/admin)</option>${S.branches.map(b=>`<option ${a.branch===b.name?'selected':''}>${esc(b.name)}</option>`).join('')}</select></label>
+    ${id?`<label class="f">Status<select id="aa"><option value="1">Active</option><option value="0" ${a.active===false?'selected':''}>Disabled</option></select></label>`
+       :`<label class="f full">Temporary password (they change it on first login)<input id="ap" type="text" autocomplete="off" placeholder="at least 8 characters"></label>`}</div>
+    <div class="sub">Staff and branch admins must have a branch. Owner and admin see all branches.</div>`,
+    [{label:'Cancel',fn:closeModal},{label:'Save',cls:'pri',fn:async btn=>{
+      const u=(id||$('au').value).trim().toLowerCase(), role=$('ar').value, branch=seesAll()?($('ab').value||null):S.branch;
+      if(!/^[a-z0-9._-]{3,30}$/.test(u)) return toast('Username: 3-30 letters or numbers, no spaces');
+      if(['Staff','BranchAdmin'].includes(role)&&!branch) return toast('Choose a branch for this role');
+      const row={id:u, name:$('an').value.trim()||u, role, branch};
+      if(id) row.active=$('aa').value==='1';
+      else { if(($('ap').value||'').length<8) return toast('Temporary password needs 8+ characters'); row.forcepasswordchange=true; }
+      busy(btn,true);
+      try{
+        if(!id && (S._accs||[]).some(x=>x.id===u)) throw new Error('That username is taken');
+        await api('accounts?on_conflict=id','POST',row);
+        if(!id){ const r=await _efLogin({action:'change_password', token:S.token, newPassword:$('ap').value, targetUsername:u}); if(!r.success) throw new Error(r.error); }
+        audit(id?'edit account':'new account', u+' '+role); closeModal(); toast(id?'Account saved':'Account created'); refresh();
+      }catch(e){ busy(btn,false); toast(e.message); } }}]);
+}
+function resetPw(id){
+  openModal('Reset password', `<div class="sub">Set a temporary password for <b>${esc(id)}</b>. They will choose their own at next login.</div>
+    <label class="f">Temporary password<input id="rp" type="text" autocomplete="off"></label>`,
+    [{label:'Cancel',fn:closeModal},{label:'Reset',cls:'pri',fn:async b=>{
+      if(($('rp').value||'').length<8) return toast('Use at least 8 characters');
+      busy(b,true); const r=await _efLogin({action:'change_password', token:S.token, newPassword:$('rp').value, targetUsername:id}); busy(b,false);
+      if(!r.success) return toast(r.error); audit('reset password',id); closeModal(); toast('Password reset');
+    }}]);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  PWA: service worker + update banner (same flow as the clinic app)
+// ══════════════════════════════════════════════════════════════════════════
+let _waitingSW=null;
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').then(reg=>{
+    if(reg.waiting && navigator.serviceWorker.controller){ _waitingSW=reg.waiting; $('upd').style.display='block'; }
+    reg.addEventListener('updatefound',()=>{ const w=reg.installing; w&&w.addEventListener('statechange',()=>{ if(w.state==='installed'&&navigator.serviceWorker.controller){ _waitingSW=w; $('upd').style.display='block'; } }); });
+    setInterval(()=>reg.update().catch(()=>{}), 30*60*1000);
+  }).catch(()=>{});
+  let _reloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(!_reloaded){ _reloaded=true; location.reload(); } });
+}
+function applyUpdate(){ $('upd').style.display='none'; if(_waitingSW) _waitingSW.postMessage({type:'SKIP_WAITING'}); else location.reload(); }
+
+// ══════════════════════════════════════════════════════════════════════════
+//  Boot
+// ══════════════════════════════════════════════════════════════════════════
+document.title = SHOP_NAME + ' · Laundry';
+$('shopName').textContent = SHOP_NAME; $('loginShop').textContent = SHOP_NAME;
+document.addEventListener('keydown',e=>{ if(e.key==='Escape' && $('ov').classList.contains('show') && !M.locked) closeModal(); });
+(function resume(){
+  try{ const s=JSON.parse(_ss('lx_sess')||'null'); if(s&&s.token){ Object.assign(S,s); startApp(); } }catch(e){}
+})();
+</script>
+</body>
+</html>
